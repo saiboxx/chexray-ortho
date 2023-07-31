@@ -85,6 +85,9 @@ def preprocess_chexpert_meta(
     # Rescale age column
     df['age'] = df['age'] / 100
 
+    # Change sex values
+    df['sex'] = np.where(df['sex'] == 'Male', 'M', 'F')
+
     # Filter for race
     df = df[df['race'].str.contains('Asian|Black|White')]
     df['race'] = df['race'].apply(categorize_chexpert_race)
@@ -92,7 +95,7 @@ def preprocess_chexpert_meta(
     # Filter for view position
     df = df[df['Frontal/Lateral'] == 'Frontal']
 
-    df['index'] = range(len(df))
+    df['idx'] = range(len(df))
 
     # Save results to csv
     df.to_csv(os.path.join(d_path, target_file))
