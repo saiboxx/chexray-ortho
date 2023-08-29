@@ -1,5 +1,6 @@
 import os
-from typing import Tuple
+import sys
+from typing import Tuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,9 @@ def get_mimic_meta_data(f_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Dat
 
     df = df[df['race'].str.contains('ASIAN|BLACK|WHITE')]
     df['race'] = df['race'].apply(categorize_mimic_race)
+    df['race'] = pd.Categorical(
+        df['race'], categories=['WHITE', 'BLACK', 'ASIAN'], ordered=True
+    )
 
     df = df[df['ViewPosition'].isin(['AP', 'PA'])]
 
@@ -24,9 +28,17 @@ def get_mimic_meta_data(f_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Dat
 
     df = df.rename(columns={'gender': 'sex', 'anchor_age': 'age'})
 
-    train_df = df[df['split'] == 'train']
-    val_df = df[df['split'] == 'validate']
-    test_df = df[df['split'] == 'test']
+    df['sex'] = pd.Categorical(df['sex'], categories=['M', 'F'], ordered=True)
+
+    train_df = df[df['split'] == 'train'].copy()
+    val_df = df[df['split'] == 'validate'].copy()
+    test_df = df[df['split'] == 'test'].copy()
+
+    train_df['idx'] = range(len(train_df))
+    val_df['idx'] = range(len(train_df), len(train_df) + len(val_df))
+    test_df['idx'] = range(
+        len(train_df) + len(val_df), len(train_df) + len(val_df) + len(test_df)
+    )
     return train_df, val_df, test_df
 
 
@@ -39,6 +51,11 @@ def get_chexpert_meta_data(
         preprocess_chexpert_meta(d_path, target_file)
 
     df = pd.read_csv(f_path)
+
+    df['sex'] = pd.Categorical(df['sex'], categories=['M', 'F'], ordered=True)
+    df['race'] = pd.Categorical(
+        df['race'], categories=['WHITE', 'BLACK', 'ASIAN'], ordered=True
+    )
 
     train_df = df[df['split'] == 'train']
     val_df = df[df['split'] == 'validate']
@@ -85,6 +102,9 @@ def preprocess_chexpert_meta(
     # Rescale age column
     df['age'] = df['age'] / 100
 
+    # Change sex values
+    df['sex'] = np.where(df['sex'] == 'Male', 'M', 'F')
+
     # Filter for race
     df = df[df['race'].str.contains('Asian|Black|White')]
     df['race'] = df['race'].apply(categorize_chexpert_race)
@@ -92,7 +112,7 @@ def preprocess_chexpert_meta(
     # Filter for view position
     df = df[df['Frontal/Lateral'] == 'Frontal']
 
-    df['index'] = range(len(df))
+    df['idx'] = range(len(df))
 
     # Save results to csv
     df.to_csv(os.path.join(d_path, target_file))
@@ -120,7 +140,7 @@ def categorize_chexpert_race(lab: str) -> str:
         return 'OTHER'
 
 
-def eval_predictions(true: np.ndarray, pred: np.ndarray) -> None:
+def eval_predictions(true: np.ndarray, pred: np.ndarray, do_print: bool = True) -> Dict:
     pred_classes = pred > 0.5
 
     auc = roc_auc_score(true, pred)
@@ -130,7 +150,17 @@ def eval_predictions(true: np.ndarray, pred: np.ndarray) -> None:
     )
     spec = recall_score(true, pred_classes, pos_label=0)
 
-    print(
-        'METRICS:\tAUC {:.4f} | ACC {:.4f} | SENS {:.4f} | SPEC {:.4f} | PREC {:.4f} |'
-        ' F1 {:.4f}'.format(auc, acc, sens, spec, prec, f1)
-    )
+    if do_print:
+        print(
+            'METRICS:\tAUC {:.4f} | ACC {:.4f} | SENS {:.4f} | SPEC {:.4f} | PREC {:.4f} |'
+            ' F1 {:.4f}'.format(auc, acc, sens, spec, prec, f1)
+        )
+
+    return {
+        'AUC': auc,
+        'ACC': acc,
+        'SENS': sens,
+        'SPEC': spec,
+        'PREC': prec,
+        'F1': f1
+    }

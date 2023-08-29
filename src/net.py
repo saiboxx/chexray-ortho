@@ -109,11 +109,12 @@ class NNClassifier:
         batch_size: int = 256,
     ) -> None:
         if model is None:
-            self.model = nn.Sequential(nn.LazyLinear(1), nn.Sigmoid())
+            warnings.filterwarnings('ignore', category=UserWarning)
+            self.model = nn.LazyLinear(1)
         else:
             self.model = model
 
-        self.loss_func = nn.BCELoss() if loss_func is None else loss_func
+        self.loss_func = nn.BCEWithLogitsLoss() if loss_func is None else loss_func
         self.max_epochs = max_epochs
         self.batch_size = batch_size
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -137,6 +138,7 @@ class NNClassifier:
             logger=CSVLogger('lightning_logs'),
             max_epochs=self.max_epochs,
             enable_model_summary=False,
+            enable_progress_bar=False,
         )
 
         # Train the model
@@ -144,6 +146,20 @@ class NNClassifier:
 
         return self
 
+    @torch.no_grad()
+    def decision_function(self, x: np.ndarray) -> np.ndarray:
+        self.model.eval()
+
+        x = torch.tensor(x).to(self.device).float()
+        model = self.model.to(self.device)
+
+        preds = []
+        for x_batch in torch.chunk(x, chunks=x.shape[0] // self.batch_size * 4):
+            preds.append(model(x_batch))
+        return torch.cat(preds).cpu().numpy()
+
+
+    @torch.no_grad()
     def predict(self, x: np.ndarray) -> np.ndarray:
         return np.argmax(self.predict_proba(x), axis=1)
 
@@ -157,6 +173,6 @@ class NNClassifier:
         preds = []
         for x_batch in torch.chunk(x, chunks=x.shape[0] // self.batch_size * 4):
             preds.append(model(x_batch))
-        probs = torch.cat(preds)
+        probs = torch.sigmoid(torch.cat(preds))
         # Tedious restructuring to align with sklearn API
         return torch.cat([1 - probs, probs], dim=1).cpu().numpy()

@@ -43,7 +43,6 @@ def get_non_linear_nn(max_epochs: int = 3, batch_size: int = 256) -> NNClassifie
         nn.BatchNorm1d(128),
         nn.GELU(),
         nn.Linear(128, 1),
-        nn.Sigmoid(),
     )
     return NNClassifier(model=model, max_epochs=max_epochs, batch_size=batch_size)
 
