@@ -1,5 +1,4 @@
 import os
-import sys
 from typing import Tuple, Dict
 
 import numpy as np
@@ -164,3 +163,4 @@ def eval_predictions(true: np.ndarray, pred: np.ndarray, do_print: bool = True) 
         'PREC': prec,
         'F1': f1
     }
+
