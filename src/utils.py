@@ -9,6 +9,7 @@ from sklearn.metrics import (
     accuracy_score,
     recall_score,
 )
+from sklearn.metrics import confusion_matrix
 
 
 def get_mimic_meta_data(f_path: str) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -148,6 +149,57 @@ def eval_predictions(true: np.ndarray, pred: np.ndarray, do_print: bool = True) 
         true, pred_classes, average='binary'
     )
     spec = recall_score(true, pred_classes, pos_label=0)
+
+    if do_print:
+        print(
+            'METRICS:\tAUC {:.4f} | ACC {:.4f} | SENS {:.4f} | SPEC {:.4f} | PREC {:.4f} |'
+            ' F1 {:.4f}'.format(auc, acc, sens, spec, prec, f1)
+        )
+
+    return {
+        'AUC': auc,
+        'ACC': acc,
+        'SENS': sens,
+        'SPEC': spec,
+        'PREC': prec,
+        'F1': f1
+    }
+
+def eval_predictions_multiclass(true: np.ndarray, pred: np.ndarray, do_print: bool = True) -> Dict:
+    pred_classes = np.argmax(pred, axis=1)
+
+    auc = roc_auc_score(true, pred, multi_class='ovr', average='macro')
+    acc = accuracy_score(true, pred_classes)
+    prec, sens, f1, _ = precision_recall_fscore_support(
+        true, pred_classes, average='macro'
+    )
+
+    # Get the number of classes
+    num_classes = np.max(true) + 1
+
+    # Initialize a list to store specificity for each class
+    specificity_per_class = []
+
+    # Calculate specificity for each class
+    for class_label in range(num_classes):
+        class_pred = (pred_classes == class_label).astype(int)
+        class_true = (true == class_label).astype(int)
+
+        # Compute the confusion matrix for the current class
+        confusion = confusion_matrix(class_true, class_pred)
+
+        # Extract true negatives and false positives for the current class
+        tn, fp, fn, tp = confusion.ravel()
+
+        # Compute specificity for the current class
+        class_specificity = tn / (tn + fp)
+
+        # Append specificity to the list
+        specificity_per_class.append(class_specificity)
+
+    # Now, specificity_per_class contains the specificity for each class
+    print("Specificity per class:", specificity_per_class)
+    spec = np.mean(specificity_per_class)
 
     if do_print:
         print(

@@ -14,9 +14,9 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class TensorDataset(Dataset):
-    def __init__(self, x_data, y_data):
+    def __init__(self, x_data, y_data, label_dtype=torch.float32):
         self.x_data = torch.tensor(x_data, dtype=torch.float32)
-        self.y_data = torch.tensor(y_data, dtype=torch.float32)
+        self.y_data = torch.tensor(y_data, dtype=label_dtype)
 
     def __len__(self):
         return len(self.x_data)
