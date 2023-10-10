@@ -127,28 +127,22 @@ class EmbeddingEvaluator:
             'auc_ortho': []
         }
 
-        # Choose which embedding is the target
-        train_emb = self.train_emb
-        test_emb = self.test_emb
-
         for i in range(runs):
             model = get_classifier(clf_name, clf_args)
-            model.fit(train_emb, self.train_df['response'].tolist())
+            model.fit(self.train_emb, self.train_df['response'].tolist())
 
-            self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
-            m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
+            preds = model.predict_proba(self.test_emb)[:, 1]
+            m = eval_predictions(self.test_df['response'], preds, do_print=False)
 
             res['auc_normal'].append(m['AUC'])
 
-            # Choose which embedding is the target
-            train_emb = self.train_emb_ortho
-            test_emb = self.test_emb_ortho
+            # --------------------------------------------------------------------------
 
             model = get_classifier(clf_name, clf_args)
-            model.fit(train_emb, self.train_df['response'].tolist())
+            model.fit(self.train_emb_ortho, self.train_df['response'].tolist())
 
-            self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
-            m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
+            preds = model.predict_proba(self.test_emb_ortho)[:, 1]
+            m = eval_predictions(self.test_df['response'], preds, do_print=False)
 
             res['auc_ortho'].append(m['AUC'])
 
