@@ -107,6 +107,7 @@ class EmbeddingEvaluator:
 
         mod = sm.OLS.from_formula(formula, data=self.train_df).fit()
         print(mod.summary())
+        print(mod.pvalues)
 
         print('-' * 75 + '\nANOVA')
 
@@ -115,36 +116,50 @@ class EmbeddingEvaluator:
     def get_classifier_metrics(
             self,
             response: Disease = Disease.PLEURAL_EFFUSION,
+            runs = 10,
             clf_name: str = 'nn', clf_args: Optional[Dict] = None,
     ) -> str:
         self.train_df['response'] = (self.train_df[response.value] == 1).astype(int)
         self.test_df['response'] = (self.test_df[response.value] == 1).astype(int)
 
+        res = {
+            'auc_normal': [],
+            'auc_ortho': []
+        }
+
         # Choose which embedding is the target
         train_emb = self.train_emb
         test_emb = self.test_emb
 
-        model = get_classifier(clf_name, clf_args)
-        model.fit(train_emb, self.train_df['response'].tolist())
+        for i in range(runs):
+            model = get_classifier(clf_name, clf_args)
+            model.fit(train_emb, self.train_df['response'].tolist())
 
-        self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
-        m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
+            self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
+            m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
 
-        auc_normal = m['AUC']
+            res['auc_normal'].append(m['AUC'])
 
-        # Choose which embedding is the target
-        train_emb = self.train_emb_ortho
-        test_emb = self.test_emb_ortho
+            # Choose which embedding is the target
+            train_emb = self.train_emb_ortho
+            test_emb = self.test_emb_ortho
 
-        model = get_classifier(clf_name, clf_args)
-        model.fit(train_emb, self.train_df['response'].tolist())
+            model = get_classifier(clf_name, clf_args)
+            model.fit(train_emb, self.train_df['response'].tolist())
 
-        self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
-        m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
+            self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
+            m = eval_predictions(self.test_df['response'], self.test_df['preds'], do_print=False)
 
-        auc_ortho = m['AUC']
+            res['auc_ortho'].append(m['AUC'])
 
-        msg = '{:.3f} & {:.3f}'.format(auc_normal, auc_ortho)
+        normal_mean = np.mean(res['auc_normal'])
+        ortho_mean = np.mean(res['auc_ortho'])
+
+        normal_std = np.std(res['auc_normal'])
+        ortho_std = np.std(res['auc_ortho'])
+
+        msg = ('{:.3f} \pm {:.3f} & {:.3f} \pm {:.3f}'
+               .format(normal_mean, normal_std, ortho_mean, ortho_std))
         print(msg)
         return msg
 
