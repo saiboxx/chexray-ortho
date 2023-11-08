@@ -7,13 +7,13 @@ from pandas import DataFrame
 from patsy import dmatrices
 import statsmodels.api as sm
 
-from src.classifier import get_classifier
+from src.net import NNClassifier
 from src.svd import PCA
 from src.ortho import Orthogonalizator
 from src.utils import eval_predictions
 
 
-class Disease(Enum):
+class Pathology(Enum):
     ENLARGED_CARDIOMEDIASTINUM = 'Enlarged Cardiomediastinum'
     CARDIOMEGALY = 'Cardiomegaly'
     LUNG_OPACITY = 'Lung Opacity'
@@ -63,7 +63,7 @@ class EmbeddingEvaluator:
         # Conduct orthogonalization
         ortho = Orthogonalizator()
         self.train_emb_ortho = ortho.fit_transform(self.train_x, train_emb)
-        self.test_emb_ortho = ortho.transform(self.test_x, test_emb)
+        self.test_emb_ortho = ortho.fit_transform(self.test_x, test_emb)
 
     def _create_design_matrices(self) -> Tuple[np.ndarray, np.ndarray]:
         formula = '1 ~ age + sex + race'
@@ -73,17 +73,21 @@ class EmbeddingEvaluator:
         return train_x, test_x
 
     def eval_classifier(
-            self,
-            response: Disease = Disease.PLEURAL_EFFUSION,
-            ortho: bool = False,
-            clf_name: str = 'nn', clf_args: Optional[Dict] = None,
-            formula: str = 'scores ~ 1 + age + sex + race'
+        self,
+        response: Pathology = Pathology.PLEURAL_EFFUSION,
+        ortho: bool = False,
+        clf_args: Optional[Dict] = None,
+        formula: str = 'scores ~ 1 + age + sex + race',
+        coeffs_on_test: bool = False,
     ) -> None:
+        if clf_args is None:
+            clf_args = {}
+
         # Follow U-zeros strategy for now
         self.train_df['response'] = (self.train_df[response.value] == 1).astype(int)
         self.test_df['response'] = (self.test_df[response.value] == 1).astype(int)
 
-        model = get_classifier(clf_name, clf_args)
+        model = NNClassifier(**clf_args)
 
         # Choose which embedding is the target
         train_emb = self.train_emb_ortho if ortho else self.train_emb
@@ -94,41 +98,31 @@ class EmbeddingEvaluator:
         self.train_df['preds'] = model.predict_proba(train_emb)[:, 1]
         self.test_df['preds'] = model.predict_proba(test_emb)[:, 1]
 
-        #print(sum(self.test_df['preds'] > 0.5) / len(self.test_df['preds'] ))
-
         self.train_df['scores'] = model.decision_function(train_emb)
         self.test_df['scores'] = model.decision_function(test_emb)
 
-        print('-' * 75 + '\nTRAINING')
-        eval_predictions(self.train_df['response'], self.train_df['preds'])
-        print('-' * 75 + '\nTESTING')
-        eval_predictions(self.test_df['response'], self.test_df['preds'])
-        print('-' * 75)
-
-        mod = sm.OLS.from_formula(formula, data=self.train_df).fit()
+        df = self.test_df if coeffs_on_test else self.train_df
+        mod = sm.OLS.from_formula(formula, data=df).fit()
         print(mod.summary())
-        print(mod.pvalues)
 
-        print('-' * 75 + '\nANOVA')
-
-        print(sm.stats.anova_lm(mod))
+        return mod.params, mod.pvalues
 
     def get_classifier_metrics(
-            self,
-            response: Disease = Disease.PLEURAL_EFFUSION,
-            runs = 10,
-            clf_name: str = 'nn', clf_args: Optional[Dict] = None,
+        self,
+        response: Pathology = Pathology.PLEURAL_EFFUSION,
+        runs: int = 10,
+        clf_args: Optional[Dict] = None,
     ) -> str:
+        if clf_args is None:
+            clf_args = {}
+
         self.train_df['response'] = (self.train_df[response.value] == 1).astype(int)
         self.test_df['response'] = (self.test_df[response.value] == 1).astype(int)
 
-        res = {
-            'auc_normal': [],
-            'auc_ortho': []
-        }
+        res = {'auc_normal': [], 'auc_ortho': []}
 
         for i in range(runs):
-            model = get_classifier(clf_name, clf_args)
+            model = NNClassifier(**clf_args)
             model.fit(self.train_emb, self.train_df['response'].tolist())
 
             preds = model.predict_proba(self.test_emb)[:, 1]
@@ -138,7 +132,7 @@ class EmbeddingEvaluator:
 
             # --------------------------------------------------------------------------
 
-            model = get_classifier(clf_name, clf_args)
+            model = NNClassifier(**clf_args)
             model.fit(self.train_emb_ortho, self.train_df['response'].tolist())
 
             preds = model.predict_proba(self.test_emb_ortho)[:, 1]
@@ -152,9 +146,8 @@ class EmbeddingEvaluator:
         normal_std = np.std(res['auc_normal'])
         ortho_std = np.std(res['auc_ortho'])
 
-        msg = ('{:.3f} \pm {:.3f} & {:.3f} \pm {:.3f}'
-               .format(normal_mean, normal_std, ortho_mean, ortho_std))
+        msg = '{:.3f} \pm {:.3f} & {:.3f} \pm {:.3f}'.format(
+            normal_mean, normal_std, ortho_mean, ortho_std
+        )
         print(msg)
         return msg
-
-

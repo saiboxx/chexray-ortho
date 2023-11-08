@@ -17,12 +17,12 @@ from src.utils import get_chexpert_meta_data, get_mimic_meta_data
 
 DATASET = 'chex'
 DATA_DIR = 'data'
-CHEST_DIR = '/data/core-rad/data/chestx-ray'
+CHEST_DIR = '<path to containing MIMIC and CHEXPERT>'
 CHESS_PATH = 'data/chess.pt'
 EMBEDDING_FILE = 'chex_chess.npy'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 BATCH_SIZE = 256
-POOL_WORKERS = 100
+POOL_WORKERS = 32
 
 
 @torch.no_grad()

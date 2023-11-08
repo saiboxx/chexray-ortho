@@ -2,10 +2,12 @@ torch
 torchvision
 torchxrayvision
 scikit-image
+scikit-learn
 statsmodels
 pandas
+patsy
 matplotlib
-xgboost
+tensorflow
 tqdm
 openpyxl
 -e .

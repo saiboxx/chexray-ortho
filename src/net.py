@@ -52,7 +52,7 @@ class ClassificationModule(L.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=0.001)
 
 
-def train_linear_classifier(
+def train_classifier(
     x_train: np.ndarray,
     y_train: Sequence,
     x_val: Tensor,
@@ -105,7 +105,7 @@ class NNClassifier:
         self,
         model: Optional[nn.Module] = None,
         loss_func: Optional[nn.Module] = None,
-        max_epochs: int = 3,
+        max_epochs: int = 10,
         batch_size: int = 256,
     ) -> None:
         if model is None:
@@ -165,14 +165,7 @@ class NNClassifier:
 
     @torch.no_grad()
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
-        self.model.eval()
-
-        x = torch.tensor(x).to(self.device).float()
-        model = self.model.to(self.device)
-
-        preds = []
-        for x_batch in torch.chunk(x, chunks=x.shape[0] // self.batch_size * 4):
-            preds.append(model(x_batch))
+        preds = torch.from_numpy(self.decision_function(x))
         probs = torch.sigmoid(torch.cat(preds))
         # Tedious restructuring to align with sklearn API
-        return torch.cat([1 - probs, probs], dim=1).cpu().numpy()
+        return torch.cat([1 - probs, probs], dim=1).numpy()
