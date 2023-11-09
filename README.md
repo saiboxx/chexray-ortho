@@ -32,6 +32,31 @@ pip install -r requirements.txt
 
 We use Python 3.11.
 
+## Orthogonalization
+
+The actual orthogonalization procedure is a rather simple procedure.
+As a requirement, you need a target matrix $E \in \mathbb{R}^{n \times d}$ that you want to cleanse.
+Here, $n$ is the number of samples and $d$ the dimension of the embedding, weight, etc.
+The second necessity is the actual feature matrix $X$ with protected characteristics, whose information 
+you want to remove from $E$.
+
+In case your protected data is provided in a pandas dataframe including categorical variables, a handy tool to transform
+it into a numeric matrix is `dmatrices` from the `patsy` library.
+For example, in our case, we construct $X$ as follows:
+
+```python
+from patsy import dmatrices
+
+formula = '1 ~ age + sex + race'
+_, x_mat = dmatrices(formula, data=x_df)
+```
+
+The orthogonalization itself can then be conducted conveniently by our `Orthogonalizator` class.
+
+```python
+e_ortho = Orthogonalizator().fit_transform(x_mat, e_org)
+```
+
 ## Datasets
 
 Our analyses involved the two datasets [MIMIC](https://physionet.org/content/mimic-cxr-jpg/2.0.0/)
@@ -62,4 +87,10 @@ The basis for our embeddings are the pretrained classifiers from
 [torchxrayvision](https://github.com/mlmed/torchxrayvision).
 With the same interface as above, computing the embeddings can be triggered over `2_compute_classifier_embs.py`.
 
+## Notebooks
 
+We supply two notebooks as a measure to reproduce our analysis.
+In the first notebook `01_analyze_embeddings.ipynb` the influence of protected characteristics on model predictions is 
+estimated and the performance of downstream classifiers is evaluated.
+The second notebook `02_predict_protected.ipynb` shows how to derive protected characteristics directly from embeddings
+and investigate whether orthogonalization is able to render this task infeasible.
