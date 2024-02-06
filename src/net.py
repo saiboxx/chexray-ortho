@@ -166,6 +166,6 @@ class NNClassifier:
     @torch.no_grad()
     def predict_proba(self, x: np.ndarray) -> np.ndarray:
         preds = torch.from_numpy(self.decision_function(x))
-        probs = torch.sigmoid(torch.cat(preds))
+        probs = torch.sigmoid(preds)
         # Tedious restructuring to align with sklearn API
         return torch.cat([1 - probs, probs], dim=1).numpy()

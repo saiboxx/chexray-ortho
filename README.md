@@ -94,3 +94,16 @@ In the first notebook `01_analyze_embeddings.ipynb` the influence of protected c
 estimated and the performance of downstream classifiers is evaluated.
 The second notebook `02_predict_protected.ipynb` shows how to derive protected characteristics directly from embeddings
 and investigate whether orthogonalization is able to render this task infeasible.
+
+## Reproduction of Tables in Paper
+
+**Table 1:** Make sure the datasets and metadata are downloaded correctly.
+For MIMIC, additionally call `scripts/0_preprocess_mimic_emb.py` to trigger the meta preprocessing.
+The dataframes containing the MIMIC and CheXpert subsets are then obtained by calling `get_mimic_meta_data(f_path: str)`
+and `get_chexpert_meta_data(d_path: str)` in `utils.py` respectively.
+
+**Table 2 & 3:** The coefficents and p-values are obtained by the `eval_classifier` method of the `EmbeddingEvaluator`.
+The downstream task classification metrics are computed by `get_classifier_metrics` of the same object.
+Both functions and their usage are showcased in `01_analyze_embeddings.ipynb`.
+
+**Table 4:** Execute `02_predict_protected.ipynb` to investigate the prediction of protected features from the embeddings.
