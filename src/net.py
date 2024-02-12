@@ -124,6 +124,7 @@ class NNClassifier:
         x_train: np.ndarray,
         y_train: Sequence,
     ) -> NNClassifier:
+
         # Create PyTorch datasets and data loaders
         ds = TensorDataset(x_train, y_train)
 
@@ -157,7 +158,6 @@ class NNClassifier:
         for x_batch in torch.chunk(x, chunks=x.shape[0] // self.batch_size * 4):
             preds.append(model(x_batch))
         return torch.cat(preds).cpu().numpy()
-
 
     @torch.no_grad()
     def predict(self, x: np.ndarray) -> np.ndarray:

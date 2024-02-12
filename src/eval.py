@@ -2,14 +2,14 @@ from enum import Enum
 from typing import Optional, Tuple, Dict
 
 import numpy as np
-import pandas as pd
+import statsmodels.api as sm
 from pandas import DataFrame
 from patsy import dmatrices
-import statsmodels.api as sm
+from tqdm import trange
 
 from src.net import NNClassifier
-from src.svd import PCA
 from src.ortho import Orthogonalizator
+from src.svd import PCA
 from src.utils import eval_predictions
 
 
@@ -112,42 +112,61 @@ class EmbeddingEvaluator:
         response: Pathology = Pathology.PLEURAL_EFFUSION,
         runs: int = 10,
         clf_args: Optional[Dict] = None,
-    ) -> str:
+    ) -> Tuple[Dict, Dict]:
         if clf_args is None:
             clf_args = {}
 
         self.train_df['response'] = (self.train_df[response.value] == 1).astype(int)
         self.test_df['response'] = (self.test_df[response.value] == 1).astype(int)
 
-        res = {'auc_normal': [], 'auc_ortho': []}
+        result_normal = []
+        result_ortho = []
 
-        for i in range(runs):
+        for _ in trange(runs, desc='Eval runs', leave=False):
             model = NNClassifier(**clf_args)
             model.fit(self.train_emb, self.train_df['response'].tolist())
 
             preds = model.predict_proba(self.test_emb)[:, 1]
-            m = eval_predictions(self.test_df['response'], preds, do_print=False)
+            m_normal = eval_predictions(self.test_df['response'], preds, do_print=False)
 
-            res['auc_normal'].append(m['AUC'])
-
+            result_normal.append(m_normal)
             # --------------------------------------------------------------------------
 
             model = NNClassifier(**clf_args)
             model.fit(self.train_emb_ortho, self.train_df['response'].tolist())
 
             preds = model.predict_proba(self.test_emb_ortho)[:, 1]
-            m = eval_predictions(self.test_df['response'], preds, do_print=False)
+            m_ortho = eval_predictions(self.test_df['response'], preds, do_print=False)
 
-            res['auc_ortho'].append(m['AUC'])
+            result_ortho.append(m_ortho)
 
-        normal_mean = np.mean(res['auc_normal'])
-        ortho_mean = np.mean(res['auc_ortho'])
+        result_normal = aggregate_dicts(result_normal)
+        result_ortho = aggregate_dicts(result_ortho)
 
-        normal_std = np.std(res['auc_normal'])
-        ortho_std = np.std(res['auc_ortho'])
+        for key in result_normal.keys():
+            normal_mean = np.mean(result_normal[key])
+            ortho_mean = np.mean(result_ortho[key])
 
-        msg = '{:.3f} \pm {:.3f} & {:.3f} \pm {:.3f}'.format(
-            normal_mean, normal_std, ortho_mean, ortho_std
-        )
-        print(msg)
-        return msg
+            normal_std = np.std(result_normal[key])
+            ortho_std = np.std(result_ortho[key])
+
+            change = ((ortho_mean / normal_mean) - 1) * 100
+
+            msg = '{:<8} ---------------------\n{:.3f} $\pm$ {:.3f} & {:.3f} $\pm$ {:.3f} & {:+5.2f} \%'.format(
+                key, normal_mean, normal_std, ortho_mean, ortho_std, change
+            )
+            print(msg)
+
+        return m_normal, m_ortho
+
+
+def aggregate_dicts(dict_list):
+    aggregated_dict = {}
+
+    for d in dict_list:
+        for key, value in d.items():
+            if key in aggregated_dict:
+                aggregated_dict[key].append(value)
+            else:
+                aggregated_dict[key] = [value]
+    return aggregated_dict
