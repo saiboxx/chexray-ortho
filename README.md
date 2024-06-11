@@ -1,6 +1,6 @@
-# Unreading Race: Purging Protected Features from Chest X-ray Embeddings
+# Post-hoc Orthogonalization for Mitigation of Protected Feature Bias in CXR Embeddings
 
-Code for the paper [Unreading Race: Purging Protected Features from Chest X-ray Embeddings](xxxx) @ XXXX.
+Code for the paper Post-hoc Orthogonalization for Mitigation of Protected Feature Bias in CXR Embeddings.
 
 >**Purpose**: To analyze and remove protected feature effects in chest radiograph embeddings of deep learning models.
 >**Materials** and Methods: An orthogonalization is utilized to remove the influence of protected features (e.g., age, sex, race) in chest radiograph embeddings, ensuring feature-independent results. To validate the efficacy of the approach, we retrospectively study the MIMIC and CheXpert datasets using three pre-trained models, namely a supervised contrastive, a self-supervised contrastive, and a baseline classifier model. Our statistical analysis involves comparing the original versus the orthogonalized embeddings by estimating protected feature influences and evaluating the ability to predict race, age, or sex using the two types of embeddings.
